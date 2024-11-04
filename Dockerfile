@@ -22,9 +22,6 @@ COPY . /app/
 ENV PYTHONUNBUFFERED=1
 ENV DJANGO_SETTINGS_MODULE=core.settings
 
-# Run migrations and collect static files (with verbose output)
-RUN python manage.py collectstatic --noinput --verbosity 3
-RUN python manage.py migrate --verbosity 3
 
 # Expose port 8000 to the outside world
 EXPOSE 8000
