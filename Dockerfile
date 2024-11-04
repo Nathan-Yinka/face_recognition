@@ -26,5 +26,5 @@ ENV DJANGO_SETTINGS_MODULE=core.settings
 # Expose port 8000 to the outside world
 EXPOSE 8000
 
-# Start the Django application using Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "core.wsgi:application", "--log-level", "debug"]
+# Start the Django application using Gunicorn with your preferred command
+CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000", "--timeout", "120000"]
