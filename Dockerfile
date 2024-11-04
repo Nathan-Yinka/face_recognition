@@ -20,7 +20,7 @@ COPY . /app/
 
 # Set environment variables to avoid Python buffering and set Django settings
 ENV PYTHONUNBUFFERED=1
-ENV DJANGO_SETTINGS_MODULE=your_project_name.settings
+ENV DJANGO_SETTINGS_MODULE=core.settings
 
 # Run migrations and collect static files (with verbose output)
 RUN python manage.py collectstatic --noinput --verbosity 3
@@ -30,4 +30,4 @@ RUN python manage.py migrate --verbosity 3
 EXPOSE 8000
 
 # Start the Django application using Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "your_project_name.wsgi:application", "--log-level", "debug"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "core.wsgi:application", "--log-level", "debug"]
