@@ -1,7 +1,7 @@
 django
 djangorestframework
 deepface
-face-recognition
+# face-recognition
 python-dotenv
 requests
 mtcnn
@@ -9,3 +9,4 @@ django-cors-headers
 whitenoise==6.6.0
 gunicorn
 drf-yasg
+opencv-python
