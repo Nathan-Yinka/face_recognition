@@ -29,7 +29,7 @@ MODELS = [
 ]
 
 # Load the DeepFace model once
-model_name = os.getenv("DEEPFACE_MODEL", "OpenFace")
+model_name = os.getenv("DEEPFACE_MODEL", "Facenet512")
 if model_name not in MODELS:
     raise ValueError(f"Invalid model specified: {model_name}. Must be one of {MODELS}.")
 deepface_model = DeepFace.build_model(model_name)
@@ -168,50 +168,84 @@ def align_face_with_mtcnn(image_path, to_grayscale=True, downscale_factor=0.5):
 
 
 
-def process_image(image_path, result_queue, target_size=(224, 224), to_grayscale=True):
+# def process_image(image_path, result_queue, target_size=(224, 224), to_grayscale=True):
+#     """Process the image: align the face and check detection."""
+#     print(f"Processing image: {image_path}")
+#     aligned_image_path, error = align_face_with_mtcnn(image_path, to_grayscale)
+#     if aligned_image_path is None:
+#         result_queue.put((False, f"Alignment failed: {error}"))
+#         return
+
+#     result_queue.put((True, aligned_image_path))
+
+def process_image(image_path, target_size=(224, 224), to_grayscale=True):
     """Process the image: align the face and check detection."""
     print(f"Processing image: {image_path}")
     aligned_image_path, error = align_face_with_mtcnn(image_path, to_grayscale)
     if aligned_image_path is None:
-        result_queue.put((False, f"Alignment failed: {error}"))
-        return
+        return False, f"Alignment failed: {error}"
+    return True, aligned_image_path
 
-    result_queue.put((True, aligned_image_path))
+
 
 def compare_faces(image1_path, image2_path):
-    """Compare two faces using DeepFace in a multiprocessing way."""
-    result_queue1 = Queue()
-    result_queue2 = Queue()
-
-    process1 = Process(target=process_image, args=(image1_path, result_queue1))
-    process2 = Process(target=process_image, args=(image2_path, result_queue2))
-    process1.start()
-    process2.start()
-
-    process1.join()
-    process2.join()
-
-    result1, aligned_image1_path = result_queue1.get()
-    result2, aligned_image2_path = result_queue2.get()
-
+    """Compare two faces using DeepFace without multiprocessing."""
+    # Process the first image
+    result1, aligned_image1_path = process_image(image1_path)
     if not result1:
-        # return False, f"First image processing failed: {aligned_image1_path}"
-        aligned_image1_path = image1_path
-    if not result2:
-        # return False, f"Second image processing failed: {aligned_image2_path}"
-        aligned_image2_path = image2_path
+        aligned_image1_path = image1_path  # Use original if alignment fails
 
-    # print("this stage has gotten here",aligned_image1_path,aligned_image2_path)
+    # Process the second image
+    result2, aligned_image2_path = process_image(image2_path)
+    if not result2:
+        aligned_image2_path = image2_path  # Use original if alignment fails
+
     try:
         # Compare the aligned faces using the loaded DeepFace model
         result = DeepFace.verify(
-            img1_path=aligned_image1_path, img2_path=aligned_image2_path,
-            model_name=model_name, enforce_detection=False
+            img1_path=aligned_image1_path,
+            img2_path=aligned_image2_path,
+            model_name=model_name,
+            enforce_detection=False
         )
-        
-        return result, [aligned_image1_path,aligned_image2_path]
+        return result, [aligned_image1_path, aligned_image2_path]
     except Exception as e:
         return False, str(e)
+
+# def compare_faces(image1_path, image2_path):
+#     """Compare two faces using DeepFace in a multiprocessing way."""
+#     result_queue1 = Queue()
+#     result_queue2 = Queue()
+
+#     process1 = Process(target=process_image, args=(image1_path, result_queue1))
+#     process2 = Process(target=process_image, args=(image2_path, result_queue2))
+#     process1.start()
+#     process2.start()
+
+#     process1.join()
+#     process2.join()
+
+#     result1, aligned_image1_path = result_queue1.get()
+#     result2, aligned_image2_path = result_queue2.get()
+
+#     if not result1:
+#         # return False, f"First image processing failed: {aligned_image1_path}"
+#         aligned_image1_path = image1_path
+#     if not result2:
+#         # return False, f"Second image processing failed: {aligned_image2_path}"
+#         aligned_image2_path = image2_path
+
+#     # print("this stage has gotten here",aligned_image1_path,aligned_image2_path)
+#     try:
+#         # Compare the aligned faces using the loaded DeepFace model
+#         result = DeepFace.verify(
+#             img1_path=aligned_image1_path, img2_path=aligned_image2_path,
+#             model_name=model_name, enforce_detection=False
+#         )
+        
+#         return result, [aligned_image1_path,aligned_image2_path]
+#     except Exception as e:
+#         return False, str(e)
 
 # Example usage
 if __name__ == "__main__":
