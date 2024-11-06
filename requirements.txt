@@ -10,3 +10,4 @@ whitenoise==6.6.0
 gunicorn
 drf-yasg
 opencv-python
+tf-keras
