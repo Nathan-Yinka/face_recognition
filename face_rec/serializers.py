@@ -1,6 +1,7 @@
 # serializers.py
 import re
 import base64
+import urllib.request
 import tempfile
 import requests
 import os
@@ -40,17 +41,35 @@ class FaceComparisonSerializer(serializers.Serializer):
             if file_extension not in supported_formats:
                 raise serializers.ValidationError(f"Unsupported file format: {file_extension}")
 
-            response = requests.get(image_url, stream=True)
-            response.raise_for_status()
-
+            # Create a temporary file
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=file_extension)
-            with open(temp_file.name, 'wb') as file:
-                for chunk in response.iter_content(chunk_size=8192):
-                    file.write(chunk)
+
+            # Download the image directly into the temporary file
+            urllib.request.urlretrieve(image_url, temp_file.name)
 
             return temp_file.name
         except Exception as e:
             raise serializers.ValidationError(f"Failed to download the image from URL: {str(e)}")
+
+    # def download_image_to_temp_file(self, image_url):
+    #     """Download the image from a URL and save it to a temporary file."""
+    #     try:
+    #         supported_formats = ['.jpg', '.jpeg', '.png']
+    #         file_extension = os.path.splitext(image_url)[-1].lower()
+    #         if file_extension not in supported_formats:
+    #             raise serializers.ValidationError(f"Unsupported file format: {file_extension}")
+
+    #         response = requests.get(image_url, stream=True)
+    #         response.raise_for_status()
+
+    #         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=file_extension)
+    #         with open(temp_file.name, 'wb') as file:
+    #             for chunk in response.iter_content(chunk_size=8192):
+    #                 file.write(chunk)
+
+    #         return temp_file.name
+    #     except Exception as e:
+    #         raise serializers.ValidationError(f"Failed to download the image from URL: {str(e)}")
 
     def decode_base64_image(self, base64_str):
         """Decode a base64 string and save it to a temporary file."""
