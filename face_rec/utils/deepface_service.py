@@ -1,4 +1,6 @@
 import os
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 import cv2
 import requests
 import tempfile
@@ -27,7 +29,7 @@ MODELS = [
 ]
 
 # Load the DeepFace model once
-model_name = os.getenv("DEEPFACE_MODEL", "VGG-Face")
+model_name = os.getenv("DEEPFACE_MODEL", "OpenFace")
 if model_name not in MODELS:
     raise ValueError(f"Invalid model specified: {model_name}. Must be one of {MODELS}.")
 deepface_model = DeepFace.build_model(model_name)
