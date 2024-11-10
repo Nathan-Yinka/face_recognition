@@ -75,14 +75,15 @@ class FaceComparisonView(APIView):
                 os.remove(path)
             except:
                 continue
+        fixed_threshold = 50
             
         if result:
-            print(result)
+            confidence_level,fixed_threshold,verified = self.calculate_confidence(result,fixed_threshold)
             payload = {
-                "status": result["verified"],
+                "status": verified,
                 "reason": None,
-                "confidenceLevel": self.calculate_confidence_level(result),
-                "threshold": 80,
+                "confidenceLevel": confidence_level,
+                "threshold": fixed_threshold,
                 "match": result["verified"],
                 "image1": image1,
                 "image2": image2,
@@ -94,20 +95,35 @@ class FaceComparisonView(APIView):
                 "status": False,
                 "reason": error_message_or_path,
                 "confidenceLevel": None,
-                "threshold": 80,
+                "threshold":  fixed_threshold,
                 "match": False,
                 "image1": image1,
                 "image2": image2,
             }
             return Response({"error": payload}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    def calculate_confidence(self, result, fixed_threshold=80):
+        print(result)
+        # Extract the original distance
+        distance = result.get('distance', 0.0)
+        confidence_level = (1 - distance) * 100
+        print(confidence_level)
+
+        confidence_level = max(min(confidence_level, 100), 0)
+
+        verified = confidence_level >= fixed_threshold
         
-    def calculate_confidence_level(self,result):
-        distance = result.get('distance')
-        threshold = result.get('threshold', 1.0)  # Default to 1.0 if not provided
+        return confidence_level, fixed_threshold,verified
 
-        normalized_distance = min(distance / threshold, 1)
+        
+    # def calculate_confidence_level(self,result):
+    #     distance = result.get('distance')
+    #     threshold = result.get('threshold', 1.0)
 
-        # Scale the confidence level to be between 80 and 100
-        confidence_level = 100 - (normalized_distance * 20)
+    #     normalized_distance = min(distance / threshold, 1)
 
-        return int(confidence_level)
+    #     # Scale the confidence level to be between 80 and 100
+    #     confidence_level = 100 - (normalized_distance * 20)
+
+    #     return int(confidence_level)
