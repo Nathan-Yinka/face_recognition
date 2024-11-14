@@ -10,6 +10,41 @@ from .utils.deepface_service import compare_faces
 
 class FaceComparisonView(APIView):
     """API view to handle face comparison requests."""
+    fixed_threshold = 50
+
+    def handle_exception(self, exc):
+        """
+        Custom exception handler for this view only.
+        """
+        # Check if it's a validation error
+        if hasattr(exc, 'detail') and isinstance(exc.detail, dict):
+            # Build a detailed reason that includes field names
+            errors = []
+            for field, messages in exc.detail.items():
+                if isinstance(messages, list):  # Handle list of error messages
+                    for message in messages:
+                        errors.append(f"{field}: {message}")
+                else:
+                    errors.append(f"{field}: {messages}")
+
+            # Join all error messages into a single string
+            detailed_reason = " | ".join(errors)
+
+            # Create a custom payload similar to the 200 response format
+            payload = {
+                "status": False,
+                "reason": detailed_reason,  # Clear and explanatory error message
+                "confidenceLevel": None,
+                "threshold": self.fixed_threshold,
+                "match": False,
+                "image1": self.request.data.get("image1", None),
+                "image2": self.request.data.get("image2", None),
+            }
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        # Default behavior for other exceptions
+        return super().handle_exception(exc)
+
 
     @swagger_auto_schema(
         request_body=FaceComparisonSerializer,
@@ -52,55 +87,58 @@ class FaceComparisonView(APIView):
         operation_description="Compare two faces based on the provided images. The images can be provided as URLs or Base64-encoded strings.",
     )
     def post(self, request, *args, **kwargs):
-        serializer = FaceComparisonSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        image1_path = serializer.validated_data["image1_temp_path"]
-        image2_path = serializer.validated_data["image2_temp_path"]
-        image1 = serializer.validated_data["image1"]
-        image2 = serializer.validated_data["image2"]
-        
-
-        # Step 3: Compare the faces
-        result,error_message_or_path = compare_faces(image1_path, image2_path)
-        
-        # clean up process
-        temp_image_path = [image1_path,image2_path]
-        if isinstance(error_message_or_path,list):
-             temp_image_path = temp_image_path + error_message_or_path
-    
-        for path in temp_image_path:
-            try:
-                os.remove(path)
-            except:
-                continue
-        fixed_threshold = 50
+        try:
+            serializer = FaceComparisonSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True) 
+            image1_path = serializer.validated_data["image1_temp_path"]
+            image2_path = serializer.validated_data["image2_temp_path"]
+            image1 = serializer.validated_data["image1"]
+            image2 = serializer.validated_data["image2"]
             
-        if result:
-            confidence_level,fixed_threshold,verified = self.calculate_confidence(result,fixed_threshold)
-            payload = {
-                "status": verified,
-                "reason": None,
-                "confidenceLevel": confidence_level,
-                "threshold": fixed_threshold,
-                "match": result["verified"],
-                "image1": image1,
-                "image2": image2,
-            }
-            return Response(payload, status=status.HTTP_200_OK)
+
+            # Step 3: Compare the faces
+            result,error_message_or_path = compare_faces(image1_path, image2_path)
+            
+            # clean up process
+            temp_image_path = [image1_path,image2_path]
+            if isinstance(error_message_or_path,list):
+                temp_image_path = temp_image_path + error_message_or_path
         
-        else:
-            payload = {
-                "status": False,
-                "reason": error_message_or_path,
-                "confidenceLevel": None,
-                "threshold":  fixed_threshold,
-                "match": False,
-                "image1": image1,
-                "image2": image2,
-            }
-            return Response({"error": payload}, status=status.HTTP_400_BAD_REQUEST)
+            for path in temp_image_path:
+                try:
+                    os.remove(path)
+                except:
+                    continue
+            
+                
+            if result:
+                confidence_level,fixed_threshold,verified,reason = self.calculate_confidence(result,self.fixed_threshold)
+                payload = {
+                    "status": True,
+                    "reason": reason,
+                    "confidenceLevel": confidence_level,
+                    "threshold": fixed_threshold,
+                    "match": verified,
+                    "image1": image1,
+                    "image2": image2,
+                }
+                return Response(payload, status=status.HTTP_200_OK)
+            
+            else:
+                payload = {
+                    "status": False,
+                    "reason": error_message_or_path,
+                    "confidenceLevel": None,
+                    "threshold":  fixed_threshold,
+                    "match": False,
+                    "image1": image1,
+                    "image2": image2,
+                }
+                return Response({"error": payload}, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            print(f"Exception caught in post method: {e}")
+            raise e
 
 
     def calculate_confidence(self, result, fixed_threshold=80):
@@ -110,20 +148,10 @@ class FaceComparisonView(APIView):
         confidence_level = (1 - distance) * 100
         print(confidence_level)
 
-        confidence_level = max(min(confidence_level, 100), 0)
+        # Clamp and round the confidence level
+        confidence_level = round(max(min(confidence_level, 100), 0))
 
         verified = confidence_level >= fixed_threshold
+        reason = "Images Match" if verified else "Image does not match"
         
-        return confidence_level, fixed_threshold,verified
-
-        
-    # def calculate_confidence_level(self,result):
-    #     distance = result.get('distance')
-    #     threshold = result.get('threshold', 1.0)
-
-    #     normalized_distance = min(distance / threshold, 1)
-
-    #     # Scale the confidence level to be between 80 and 100
-    #     confidence_level = 100 - (normalized_distance * 20)
-
-    #     return int(confidence_level)
+        return confidence_level, fixed_threshold,verified,reason
