@@ -58,7 +58,7 @@ class FaceComparisonSerializer(serializers.Serializer):
 
             return temp_file.name
         except Exception as e:
-            raise serializers.ValidationError(f"Failed to download the image from URL: {str(e)}")
+            raise serializers.ValidationError(f"Failed to download the image from URL")
 
     def decode_base64_image(self, base64_str):
         """Decode a base64 string and save it to a temporary file."""
@@ -73,7 +73,7 @@ class FaceComparisonSerializer(serializers.Serializer):
 
             return temp_file.name
         except Exception as e:
-            raise serializers.ValidationError(f"Failed to decode Base64 image: {str(e)}")
+            raise serializers.ValidationError(f"Failed to decode Base64 image")
 
     def validate(self, data):
         # Validate both image1 and image2 fields

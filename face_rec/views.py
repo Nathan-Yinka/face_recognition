@@ -7,10 +7,13 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .serializers import FaceComparisonSerializer
 from .utils.deepface_service import compare_faces
+from dotenv import load_dotenv
+load_dotenv()
+import os
 
 class FaceComparisonView(APIView):
     """API view to handle face comparison requests."""
-    fixed_threshold = 50
+    fixed_threshold = int(os.getenv("FIXED_THRESHOLD",50))
 
     def handle_exception(self, exc):
         """
@@ -18,17 +21,21 @@ class FaceComparisonView(APIView):
         """
         # Check if it's a validation error
         if hasattr(exc, 'detail') and isinstance(exc.detail, dict):
-            # Build a detailed reason that includes field names
-            errors = []
+            # Simplify error messages
+            errors = {}
             for field, messages in exc.detail.items():
                 if isinstance(messages, list):  # Handle list of error messages
-                    for message in messages:
-                        errors.append(f"{field}: {message}")
+                    # Extract only the message string, ignoring 'ErrorDetail' structure
+                    errors[field] = " ".join(
+                        str(message).split("string='")[1].split("',")[0] if "string='" in str(message) else str(message)
+                        for message in messages
+                    )
                 else:
-                    errors.append(f"{field}: {messages}")
+                    # Handle non-list error messages
+                    errors[field] = str(messages)
 
-            # Join all error messages into a single string
-            detailed_reason = " | ".join(errors)
+            # Combine all error messages into a single string
+            detailed_reason = " | ".join(f"{field}: {msg}" for field, msg in errors.items())
 
             # Create a custom payload similar to the 200 response format
             payload = {
